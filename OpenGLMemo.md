@@ -64,6 +64,60 @@ glShaderSource(nShaderID, 1, &strSource, NULL);
 
 # 函数
 
+## glBufferData
+
+| `void **glBufferData**(` | GLenum target,     |
+| ------------------------ | ------------------ |
+|                          | GLsizeiptr size,   |
+|                          | const void * data, |
+|                          | GLenum usage`)`;   |
+
+**target:**
+
+缓冲对象类型，可以是table1的枚举
+
+**size:**
+
+申请空间的大小，单位字节。
+
+**data:**
+
+如果不为NULL，将data指向的数据size字节复制到缓冲中
+
+**usage:**
+
+`GL_STREAM_DRAW`, `GL_STREAM_READ`, `GL_STREAM_COPY`, `GL_STATIC_DRAW`, `GL_STATIC_READ`, `GL_STATIC_COPY`, `GL_DYNAMIC_DRAW`, `GL_DYNAMIC_READ`, or `GL_DYNAMIC_COPY`.
+
+**枚举中单词对应含义：**
+
+STREAM
+
+只初始化一次，缓冲数据不频繁使用
+
+STATIC
+
+只初始化一次，频繁使用
+
+DYNAMIC
+
+可多次修改，频繁使用
+
+DRAW
+
+缓冲被应用程序修改，数据用来渲染
+
+READ
+
+缓冲数据从GL读取，应用程序可以访问
+
+COPY
+
+缓冲数据从GL读取，数据用来渲染
+
+
+
+
+
 ## glVertexAttribPointer
 
 | `void **glVertexAttribPointer**(` | GLuint index,            |
