@@ -47,7 +47,12 @@ glDeleteVertexArrays(1, &vao);
 
 ## 着色器 Shader
 
+### 着色器的初始化
+
 ```c++
+// 创建着色器程序对象
+unsigned int shaderProgram = glCreateProgram();
+
 // 创建着色器对象
 unsigned int verShader;
 verShader = glCreateShader(GL_VERTEX_SAHDER);
@@ -56,11 +61,151 @@ std::string strShaderSource;
 GetShaderSource(path, strShaderSource);
 const char* strSource = strShaderSource.c_str();
 // 将代码绑定到着色器
-glShaderSource(nShaderID, 1, &strSource, NULL);
+glShaderSource(verShader, 1, &strSource, NULL);
+// 编译着色器
+glCompileShader(verShader);
+// 编译查错
+int success;
+char infoLog[512];
+glGetShaderiv(nShaderID, GL_COMPILE_STATUS, &success);
+if (!success)
+{
+	glGetShaderInfoLog(verShader, 512, NULL, infoLog);
+	std::cout << strType << " compile error!\n" << infoLog << std::endl;
+}
 
+// 将着色器对象附加到着色器程序对象
+glAttachShader(shaderProgram, verShader);
+
+// 链接
+glLinkProgram(shaderProgram);
+
+// 启用着色器程序
+glUseProgram(shaderProgram);
+
+// 删除着色器程序
+glDeleteProgram(shaderProgram);
 ```
 
+### 从文件读取着色器代码的函数
 
+```c++
+	void Shader::GetShaderSource(const std::string& path, std::string& shaderSource)
+	{
+		std::ifstream infile;
+		std::stringstream sstr;
+		infile.open(path, std::ios::in);
+		if (infile)
+		{
+			while (!infile.eof())
+			{
+				std::string str_t;
+				getline(infile, str_t);
+				sstr << str_t << '\n';
+			}
+		}
+		else
+		{
+			std::cout << "Can't open file" << "\" " << path << "\" !" << std::endl;
+			infile.close();
+			__debugbreak();
+			return;
+		}
+
+		shaderSource = sstr.str();
+		infile.close();
+		return;
+	}
+```
+
+### Uniform变量的赋值
+
+```c++
+// 获得变量位置
+int location = glGetUniformLocation(shaderProgram, valueName);
+if(location == -1)	// 没有找到变量名
+{
+    std::cout << "Can't find uniform value '" << valueName << "' !" << std::endl;
+}
+
+// 设置变量value
+glUniformXxxxxxx(location, ... );
+
+// 优化
+std::unordered_map<std::string, int> m_UniformMapLocation; // 使用散列表记录变量位置
+int location = GetUniformLocation(valueName);
+int Shader::GetUniformLocation(const std::string& valueName)
+	{
+		if (m_UniformMapLocation.find(valueName) != m_UniformMapLocation.end())
+			return m_UniformMapLocation[valueName];
+
+		GLCall(int location = glGetUniformLocation(m_ShaderID, valueName.c_str()));
+		if (location == -1)
+		{
+			std::cout << "Can't find uniform value '" << valueName << "' !" << std::endl;
+		}
+		m_UniformMapLocation[valueName] = location;
+		return location;
+	}
+```
+
+## 2D纹理 Texture
+
+```c++
+unsigned int texture;
+glGenTextures(1, &texture);				// 生成纹理对象
+glActiveTexture(GL_TEXTURE0 + index);	// 激活纹理单元0~79
+glBindTexture(GL_TEXTURE_2D, texture);	// 将纹理对象绑定到激活的纹理单元
+glTexImage2D(GL_TEXTURE_2D, 0, texColorMode, m_nWidth, m_nHeight, 0, resColorMode, GL_UNSIGNED_BYTE, img_data);								// 开辟空间并写入纹理数据
+
+// 设置纹理属性
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);		// 设置环绕方式
+
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	// 设置插值方式
+
+glGenerateMipmap(GL_TEXTURE_2D);	// 自动生成多级渐远级别纹理(mipmap)
+```
+
+### 环绕方式和插值方式
+
+一个纹理对象的环绕方式和插值方式必须要由用户定义。
+
+**环绕方式**`GL_TEXTURE_WRAP_S` `GL_TEXTURE_WRAP_T`.可以是`GL_CLAMP_TO_EDGE`, `GL_CLAMP_TO_BORDER`, `GL_MIRRORED_REPEAT`, `GL_REPEAT`, or `GL_MIRROR_CLAMP_TO_EDGE`
+
+对于立方体纹理，还有第三维的环绕方式`GL_TEXTURE_WRAP_R`.可以是 `GL_CLAMP_TO_EDGE`, `GL_CLAMP_TO_BORDER`, `GL_MIRRORED_REPEAT`, `GL_REPEAT`, or `GL_MIRROR_CLAMP_TO_EDGE`
+
+设置border颜色
+
+```c++
+float color[4] = {0.3f, 0.3f, 0.4f ,1.0f};
+glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
+```
+
+**插值方式**
+
+`GL_TEXTURE_MIN_FILTER`,`GL_TEXTURE_MAG_FILTER`
+
+对于`GL_TEXTURE_MAG_FILTER` 只能是
+
+`GL_NEAREST`,从最邻近的像素取值
+
+`GL_LINEAR`,线性插值
+
+对于`GL_TEXTURE_MIN_FILTER`
+
+`GL_NEAREST`邻近像素
+
+`GL_LINEAR`线性插值
+
+`GL_NEAREST_MIPMAP_NEAREST`选择最邻近的mipmap然后取临近像素
+
+`GL_LINEAR_MIPMAP_NEAREST`选择最邻近的mipmap然后线性插值
+
+`GL_NEAREST_MIPMAP_LINEAR`选择最邻近的两个mipmap分别线性插值，得到两个值，然后取这两个值的平均
+
+`GL_LINEAR_MIPMAP_LINEAR`选择最邻近的两个mipmap分别线性插值，得到两个值，然后取这两个值的加权平均（线性插值）
 
 # 函数
 
@@ -246,7 +391,68 @@ glEableVertexArrayAttrib是它的Named版本
 
 **length:**
 
-整数
+整数数组，标识字符串数组中每一个字符串的长度，结尾的'\0'不计入。
+
+如果该参数为NULL，则认为字符串都是以空字符结尾的字符串。
+
+## glTexImage2D
+
+| `void **glTexImage2D**(` | GLenum target,        |
+| ------------------------ | --------------------- |
+|                          | GLint level,          |
+|                          | GLint internalformat, |
+|                          | GLsizei width,        |
+|                          | GLsizei height,       |
+|                          | GLint border,         |
+|                          | GLenum format,        |
+|                          | GLenum type,          |
+|                          | const void * data`)`; |
+
+**`target`**
+
+纹理对象类型 `GL_TEXTURE_2D`, `GL_PROXY_TEXTURE_2D`, `GL_TEXTURE_1D_ARRAY`, `GL_PROXY_TEXTURE_1D_ARRAY`, `GL_TEXTURE_RECTANGLE`, `GL_PROXY_TEXTURE_RECTANGLE`, `GL_TEXTURE_CUBE_MAP_POSITIVE_X`, `GL_TEXTURE_CUBE_MAP_NEGATIVE_X`, `GL_TEXTURE_CUBE_MAP_POSITIVE_Y`, `GL_TEXTURE_CUBE_MAP_NEGATIVE_Y`, `GL_TEXTURE_CUBE_MAP_POSITIVE_Z`, `GL_TEXTURE_CUBE_MAP_NEGATIVE_Z`, or `GL_PROXY_TEXTURE_CUBE_MAP`.
+
+**`level`**
+
+逐级渐远纹理（mipmap）的等级。0为基等级。
+
+ If *`target`* is `GL_TEXTURE_RECTANGLE` or `GL_PROXY_TEXTURE_RECTANGLE`, *`level`* must be 0.
+
+**`internalformat`**
+
+纹理对象的内部格式。常用的是`GL_RGB`,`GL_RGBA`
+
+深度贴图用`GL_DEPTH_COMPONENT` 
+
+**`width`**
+
+纹理的高度. 所有的实现至少都支持1024
+
+**`height`**
+
+纹理的宽度，至少支持1024. 如果是1维纹理数组，则为纹理的索引至少支持256. `GL_TEXTURE_1D_ARRAY` and `GL_PROXY_TEXTURE_1D_ARRAY` targets. 
+
+**`border`**
+
+必须为0
+
+**`format`**
+
+从data读取的颜色格式。
+
+Specifies the format of the pixel data. The following symbolic values are accepted: `GL_RED`, `GL_RG`, `GL_RGB`, `GL_BGR`, `GL_RGBA`, `GL_BGRA`, `GL_RED_INTEGER`, `GL_RG_INTEGER`, `GL_RGB_INTEGER`, `GL_BGR_INTEGER`, `GL_RGBA_INTEGER`, `GL_BGRA_INTEGER`, `GL_STENCIL_INDEX`, `GL_DEPTH_COMPONENT`, `GL_DEPTH_STENCIL`.
+
+**`type`**
+
+从data读取的数据类型。
+
+Specifies the data type of the pixel data. The following symbolic values are accepted: `GL_UNSIGNED_BYTE`, `GL_BYTE`, `GL_UNSIGNED_SHORT`, `GL_SHORT`, `GL_UNSIGNED_INT`, `GL_INT`, `GL_HALF_FLOAT`, `GL_FLOAT`, `GL_UNSIGNED_BYTE_3_3_2`, `GL_UNSIGNED_BYTE_2_3_3_REV`, `GL_UNSIGNED_SHORT_5_6_5`, `GL_UNSIGNED_SHORT_5_6_5_REV`, `GL_UNSIGNED_SHORT_4_4_4_4`, `GL_UNSIGNED_SHORT_4_4_4_4_REV`, `GL_UNSIGNED_SHORT_5_5_5_1`, `GL_UNSIGNED_SHORT_1_5_5_5_REV`, `GL_UNSIGNED_INT_8_8_8_8`, `GL_UNSIGNED_INT_8_8_8_8_REV`, `GL_UNSIGNED_INT_10_10_10_2`, and `GL_UNSIGNED_INT_2_10_10_10_REV`.
+
+**`data`**
+
+Specifies a pointer to the image data in memory.
+
+如果为NULL则不读取数据。对于部分类型的纹理对象也不读取数据。
 
 # Table
 
