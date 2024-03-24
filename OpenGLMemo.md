@@ -36,7 +36,6 @@ glGenVertexArrays(1, &vao);
 glBindBuffer(GL_ARRAY_BUFFER, vbo);
 glBindBuffer(GL_ELEMENT_BUFFER, ebo);
 // 设置顶点属性
-glVertexAttribPointer();
 for()
 {
 	glVertexAttribPointer(i, attr.count , attr.type, attr.bNormalize,m_stride, (void*)offset);
@@ -207,6 +206,165 @@ glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
 
 `GL_LINEAR_MIPMAP_LINEAR`选择最邻近的两个mipmap分别线性插值，得到两个值，然后取这两个值的加权平均（线性插值）
 
+## 几何着色器
+
+### 示例代码
+
+```c
+#version 330 core
+layout(points) in;							// 从顶点着色器的输入类型
+layout(line_strip, max_vertices = 2) out;	// 输入到片段着色器的图元类型
+
+void main()
+{
+    gl_Position = gl_in[0].gl_Position + vec4(-0.1f, 0.0f, 0.0f, 0.0f);
+    EmitVertex();							// 第一个图元的第一个输出顶点
+    
+    gl_Position = gl_in[0].gl_Position + vec4(0.1f, 0.0f, 0.0f, 0.0f);
+    EmitVertex();							// 第一个图元的第二个输出顶点
+    
+    EndPrimitive();
+    // 结束当前图元
+}
+```
+
+### 输入图元类型
+
+输入隐式定义为
+
+```glsl
+in gl_PerVertex
+{
+    vec4 gl_Position;
+    float gl_PointSize;
+    float gl_ClipDistance[];
+    float gl_CullDistance[];
+} gl_in[];
+```
+
+**最少顶点数**即gl_in[]数组的大小
+
+| 输入图元            | 最少顶点数 | 对应的GL_XXXX                                          |
+| ------------------- | ---------- | ------------------------------------------------------ |
+| points              | 1          | `GL_POINTS`                                            |
+| lines               | 2          | `GL_LINES`, `GL_LINE_STRIP`                            |
+| lines_adjacency     | 4          | `GL_LINES_ADJACENCY`, `GL_LINES_STRIP_ADJACENCY`       |
+| triangles           | 3          | `GL_TRIANGLES`, `GL_TRIANGLES`, `GL_TRIANGLE_FAN`      |
+| triangles_adjacency | 6          | `GL_TRIANGLE_ADJACENCY`, `GL_TRIANGLE_STRIP_ADJACENCY` |
+
+#### 输入变量必须是数组
+
+**示例**
+
+顶点着色器
+
+```glsl
+#version 330 core
+layout(location = 0) in vec2 aCoord;
+layout(location = 1) in vec4 aColor;
+
+uniform mat4 u_ProjectionTrans;
+uniform mat4 u_ViewTrans;
+
+out vec4 Color;
+
+void main()
+{
+	gl_Position = u_ProjectionTrans * u_ViewTrans * vec4(aCoord, 0.0f, 1.0f);
+	Color = aColor;
+}
+```
+
+几何着色器
+
+```glsl
+#version 330 core
+layout(points) in;
+layout(triangle_strip, max_vertices = 4) out;
+
+uniform float u_Width;
+
+in vec4 Color[];
+out vec4 GColor;
+
+void main()
+{
+	gl_Position = gl_in[0].gl_Position;
+	GColor = Color[0];
+	EmitVertex();
+	
+	gl_Position = gl_in[0].gl_Position + vec4(u_Width, 0.0f, 0.0f, 0.0f);
+	GColor = Color[0];
+	EmitVertex();
+	gl_Position = gl_in[0].gl_Position + vec4(0.0f,u_Width, 0.0f, 0.0f);
+	
+	GColor = Color[0];
+	EmitVertex();
+	
+	gl_Position = gl_in[0].gl_Position + vec4(u_Width, u_Width, 0.0f, 0.0f);
+	GColor = Color[0];
+	EmitVertex();
+	
+	EndPrimitive();
+}
+```
+
+
+
+### 输出图元类型
+
+输出隐式定义为
+
+```glsl
+out gl_PerVertex
+{
+    vec4 gl_Position;
+    float gl_PointSize;
+    float gl_ClipDistance[];
+    float gl_CullDistance[];
+};
+```
+
+输出图元：
+
+`points`, `line_strip`, `triangle_strip`
+
+
+
+## 变换
+
+```c++
+// M
+glm::mat4 modelTrans(1.0f);
+modelTrans = glm::translate(modelTrans, glm::vec3(x, y, z));	// 平移 
+modelTrans = glm::rotate(modelTrans, PI/2.0f, glm::vec3(x, y,z));	// 旋转
+modelTrans = glm::sacle(modelTrans, glm::vec3(x, y, z));	// 缩放
+
+// V
+glm::mat4 viewTrans(1.0f);
+viewTrans = glm::lookAt(
+	position, 	// 相机位置
+    dest, 		// 目标位置
+    up			// 上向量
+);
+
+// P
+// perspective projection
+glm::mat4 projectionTrans = glm::perspective(
+	PI/4.0f,		// 横向视野
+    width / height,	// 宽高比
+    near,			// 近平面
+    far				// 远平面
+);
+// ortho projection
+glm::mat4 projectionTrans = glm::ortho
+{
+    left, right, buttom, top, back, front
+};
+```
+
+
+
 # 函数
 
 ## glBufferData
@@ -259,7 +417,57 @@ COPY
 
 缓冲数据从GL读取，数据用来渲染
 
+## glBufferSubData
 
+
+void glBufferSubData(	GLenum target,
+ 	GLintptr offset,
+ 	GLsizeiptr size,
+ 	const void * data);
+
+void glNamedBufferSubData(	GLuint buffer,
+ 	GLintptr offset,
+ 	GLsizeiptr size,
+ 	const void *data);
+
+向缓冲对象写入数据
+
+**`target`**
+
+数据写入对象的类型
+
+| **Buffer Binding Target**      | **Purpose**                        |
+| :----------------------------- | :--------------------------------- |
+| `GL_ARRAY_BUFFER`              | Vertex attributes                  |
+| `GL_ATOMIC_COUNTER_BUFFER`     | Atomic counter storage             |
+| `GL_COPY_READ_BUFFER`          | Buffer copy source                 |
+| `GL_COPY_WRITE_BUFFER`         | Buffer copy destination            |
+| `GL_DISPATCH_INDIRECT_BUFFER`  | Indirect compute dispatch commands |
+| `GL_DRAW_INDIRECT_BUFFER`      | Indirect command arguments         |
+| `GL_ELEMENT_ARRAY_BUFFER`      | Vertex array indices               |
+| `GL_PIXEL_PACK_BUFFER`         | Pixel read target                  |
+| `GL_PIXEL_UNPACK_BUFFER`       | Texture data source                |
+| `GL_QUERY_BUFFER`              | Query result buffer                |
+| `GL_SHADER_STORAGE_BUFFER`     | Read-write storage for shaders     |
+| `GL_TEXTURE_BUFFER`            | Texture data buffer                |
+| `GL_TRANSFORM_FEEDBACK_BUFFER` | Transform feedback buffer          |
+| `GL_UNIFORM_BUFFER`            | Uniform block storage              |
+
+**`buffer`**
+
+缓冲对象的id 仅对`glNamedBufferSubData`使用.
+
+**`offset`**
+
+目标位置相对于缓冲数据的头地址的偏移 单位字节
+
+**`size`**
+
+源数据的大小 单位为字节
+
+**`data`**
+
+参考地址
 
 
 
@@ -329,7 +537,7 @@ glEableVertexArrayAttrib是它的Named版本
 
 **first:**
 
-第一个顶点的索引
+第一个顶点的索引  单位为顶点
 
 **count:**
 
