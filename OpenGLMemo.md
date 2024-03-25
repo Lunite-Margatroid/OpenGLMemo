@@ -363,7 +363,53 @@ glm::mat4 projectionTrans = glm::ortho
 };
 ```
 
+## GLFW输入检测
 
+### 键盘检测
+
+`int glfwGetKey(GLFWwindow* window, int keycode);`
+
+返回值为`GLFW_PRESS`, `GLFW_REPEAT`, `GLFW_RELEASE`
+
+```c++
+int status = glfwGetKey(window, keycode);
+```
+
+按键码的格式为`GLFW_KEY_XXXX`
+
+### 鼠标检测
+
+`int glfwGetMouseButton(GLFWwindow* window, int mousecode)`
+
+返回值为`GLFW_PRESS`, `GLFW_REPEAT`, `GLFW_RELEASE`
+
+```c++
+int status = glfwGetMouseButton(window, mousecode);
+```
+按键码
+
+```c++
+#define GLFW_MOUSE_BUTTON_1         0
+#define GLFW_MOUSE_BUTTON_2         1
+#define GLFW_MOUSE_BUTTON_3         2
+#define GLFW_MOUSE_BUTTON_4         3
+#define GLFW_MOUSE_BUTTON_5         4
+#define GLFW_MOUSE_BUTTON_6         5
+#define GLFW_MOUSE_BUTTON_7         6
+#define GLFW_MOUSE_BUTTON_8         7
+#define GLFW_MOUSE_BUTTON_LAST      GLFW_MOUSE_BUTTON_8
+#define GLFW_MOUSE_BUTTON_LEFT      GLFW_MOUSE_BUTTON_1
+#define GLFW_MOUSE_BUTTON_RIGHT     GLFW_MOUSE_BUTTON_2
+#define GLFW_MOUSE_BUTTON_MIDDLE    GLFW_MOUSE_BUTTON_3
+```
+
+**获得光标位置**
+
+`glfwGetCursorPos(GLFWwindow* window, double* xPos, double* yPos);`
+
+## GLFW获取时间
+
+`double glfwGetTime();`
 
 # 函数
 
