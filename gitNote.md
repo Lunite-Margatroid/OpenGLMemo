@@ -82,7 +82,7 @@ git clone https://github.com/Lunite-Margatroid/5.2.STG.git
 
 ## 文件状态
 
-<img src="L:\OpenGL\img\git_img001.png" alt="文件状态" style="zoom: 50%;" />
+<img src=".\img\git_img001.png" alt="文件状态" style="zoom: 50%;" />
 
 ### 查看当前仓库状态
 
