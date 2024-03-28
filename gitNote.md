@@ -330,6 +330,16 @@ git rm --cached <file>
 
 ```
 
+### VS Solution所用的.gitignore
+
+```pseudocode
+/bin/*
+/bin-int/*
+/.vs/*
+/Dependence/*
+!/Dependence/include/
+```
+
 
 
 ## 远程仓库
