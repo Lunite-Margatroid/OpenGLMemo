@@ -411,6 +411,69 @@ int status = glfwGetMouseButton(window, mousecode);
 
 `double glfwGetTime();`
 
+## 混合 blend
+
+### 开启混合
+
+`GLEnable(GL_BLEND);`
+
+### 混合公式
+
+$$
+\bar{C}_{result} = 
+\bar{\textcolor{green}{C}}_{source}*\textcolor{green}{F}_{source} + 
+\bar{\textcolor{red}{C}}_{destination}*\textcolor{red}{F}_{destination}
+$$
+
+$\bar{\textcolor{green}{C}}_{source}$: 源颜色向量 来自纹理
+
+$\textcolor{green}{F}_{source}$: 源因子
+
+$\bar{\textcolor{red}{C}}_{destination}$: 目标颜色向量 储存在缓存中的颜色
+
+$\textcolor{red}{F}_{destination}$: 目标因子
+
+`glBlendFunc(GLenum sfactor, GLenum dfactor);`设置$\textcolor{green}{F}_{source}$和$\textcolor{red}{F}_{destination}$
+
+两个参数都可以是下表任一枚举
+
+|枚举量|含义|
+|---------|------------------------|
+| `GL_ZERO`                     | 因子等于0                                              |
+| `GL_ONE`                      | 因子等于1                                              |
+| `GL_SRC_COLOR`                | 因子等于源颜色向量$\bar{\textcolor{green}{C}}_{source}$ |
+| `GL_ONE_MINUS_SRC_COLOR`      | 因子等于1 - $\bar{\textcolor{green}{C}}_{source}$ |
+| `GL_DST_COLOR`                | 因子等于目标颜色向量$\bar{\textcolor{red}{C}}_{destination}$ |
+| `GL_ONE_MINUS_DST_COLOR`      | 因子等于1−$\bar{\textcolor{red}{C}}_{destination}$ |
+| `GL_SRC_ALPHA`                | 因子等于$\bar{\textcolor{green}{C}}_{source}$的alpha分量 |
+| `GL_ONE_MINUS_SRC_ALPHA`      | 因子等于1−$\bar{\textcolor{green}{C}}_{source}$的alpha分量 |
+| `GL_DST_ALPHA`                | 因子等于$\bar{\textcolor{red}{C}}_{destination}$的alpha分量 |
+| `GL_ONE_MINUS_DST_ALPHA`      | 因子等于1 − $\bar{\textcolor{red}{C}}_{destination}$的alpha分量 |
+| `GL_CONSTANT_COLOR`           | 因子等于常数颜色向量$\bar{\textcolor{blue}{C}}_{constant}$ |
+| `GL_ONE_MINUS_CONSTANT_COLOR` | 因子等于1 − $\bar{\textcolor{blue}{C}}_{constant}$ |
+| `GL_CONSTANT_ALPHA`           | 因子等于 $\bar{\textcolor{blue}{C}}_{constant}$的alpha分量 |
+| `GL_ONE_MINUS_CONSTANT_ALPHA` | 因子等于1−$\bar{\textcolor{blue}{C}}_{constant}$的alpha分量 |
+
+达到PS一样的alpha混合效果，可以使用以下参数：
+
+`glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);`
+
+设置颜色常量$\bar{\textcolor{blue}{C}}_{constant}$: 
+
+`glBlendColor(GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);`
+
+### 为RGB和alpha通道设置不同的参数：
+
+`void glBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha);`
+
+### 更改混合运算符：
+
+`glBlendEquation(GLenum mode);`
+
+* GL_FUNC_ADD：默认选项，将两个分量相加：$\bar{C}_{result} = \textcolor{red}{Src} + \textcolor{green}{Dst}$。
+* GL_FUNC_SUBTRACT：将两个分量相减： $\bar{C}_{result} = \textcolor{red}{Src} - \textcolor{green}{Dst}$。
+* GL_FUNC_REVERSE_SUBTRACT：将两个分量相减，但顺序相反：$\bar{C}_{result} = \textcolor{green}{Dst} - \textcolor{red}{Src}$。
+
 # 函数
 
 ## glBufferData
