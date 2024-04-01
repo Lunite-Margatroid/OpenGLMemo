@@ -167,6 +167,8 @@ glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	// 设置插�
 glGenerateMipmap(GL_TEXTURE_2D);	// 自动生成多级渐远级别纹理(mipmap)
 ```
 
+如果不调用`glGenerateMipmap(GL_TEXTURE_2D);`会报错。<font color = "red">存疑</font>
+
 ### 环绕方式和插值方式
 
 一个纹理对象的环绕方式和插值方式必须要由用户定义。
@@ -474,6 +476,48 @@ $\textcolor{red}{F}_{destination}$: 目标因子
 * GL_FUNC_SUBTRACT：将两个分量相减： $\bar{C}_{result} = \textcolor{red}{Src} - \textcolor{green}{Dst}$。
 * GL_FUNC_REVERSE_SUBTRACT：将两个分量相减，但顺序相反：$\bar{C}_{result} = \textcolor{green}{Dst} - \textcolor{red}{Src}$。
 
+## 文本渲染
+
+### 加载FreeType
+
+```c++
+#include <ft2build.h>
+
+#include <freetype/freetype.h>
+#include <freetype/ftoutln.h>
+```
+
+
+
+### 加载一个字符的纹理
+
+```c++
+glPixelStorei(GL_UNPACK_ALIGNMENT, 1);	// 关闭字节对齐
+
+// 初始化
+FT_Library ft;
+if (FT_Init_FreeType(&ft))
+	std::cout << "[error] Could not init FreeType.\n";
+
+// 加载字体文件
+FT_Face face;
+if (FT_New_Face(ft, "C:/Windows/Fonts/msyh.ttc", 0, &face))
+	std::cout << "[error] Failed to load front.\n";
+// 设置像素大小
+FT_Set_Pixel_Sizes(face, 0, 600);
+// 参数2为宽 参数3 为高度 单位像素
+// 参数2设为0 则根据高自动计算宽
+
+// 加载字符
+if (FT_Load_Char(face, 'A', FT_LOAD_RENDER))
+	std::cout << "[error] Failed to load Glyph.\n";
+// 加载汉字可以这么写
+FT_Load_Char(face, L'啊', FT_LOAD_RENDER);
+
+```
+
+
+
 # 函数
 
 ## glBufferData
@@ -712,6 +756,22 @@ glEableVertexArrayAttrib是它的Named版本
 
 如果该参数为NULL，则认为字符串都是以空字符结尾的字符串。
 
+## glBindTexture
+
+| `void **glBindTexture**(` | GLenum target,     |
+| ------------------------- | ------------------ |
+|                           | GLuint texture`)`; |
+
+**`target`**
+
+绑定目标类型。 `GL_TEXTURE_1D`, `GL_TEXTURE_2D`, `GL_TEXTURE_3D`, `GL_TEXTURE_1D_ARRAY`, `GL_TEXTURE_2D_ARRAY`, `GL_TEXTURE_RECTANGLE`, `GL_TEXTURE_CUBE_MAP`, `GL_TEXTURE_CUBE_MAP_ARRAY`, `GL_TEXTURE_BUFFER`, `GL_TEXTURE_2D_MULTISAMPLE` or `GL_TEXTURE_2D_MULTISAMPLE_ARRAY`.
+
+**`texture`**
+
+纹理对象的id
+
+
+
 ## glTexImage2D
 
 | `void **glTexImage2D**(` | GLenum target,        |
@@ -771,6 +831,62 @@ Specifies a pointer to the image data in memory.
 
 如果为NULL则不读取数据。对于部分类型的纹理对象也不读取数据。
 
+## glTexImage3D
+
+| `void glTexImage3D(` | GLenum target,        |
+| -------------------- | --------------------- |
+|                      | GLint level,          |
+|                      | GLint internalformat, |
+|                      | GLsizei width,        |
+|                      | GLsizei height,       |
+|                      | GLsizei depth,        |
+|                      | GLint border,         |
+|                      | GLenum format,        |
+|                      | GLenum type,          |
+|                      | const void * data);   |
+
+**`target`**
+
+操作的目标对象的类型。 `GL_TEXTURE_3D`, `GL_PROXY_TEXTURE_3D`, `GL_TEXTURE_2D_ARRAY` or `GL_PROXY_TEXTURE_2D_ARRAY`.
+
+**`level`**
+
+多级渐远纹理等级。
+
+**`internalformat`**
+
+纹理的内部格式. Must be one of **base internal formats** given in **Table 3**, one of the **sized internal formats** given in **Table 4**, or one of the compressed **internal formats** given in **Table 5**.
+
+**`width`**
+
+纹理图像的宽。3D Texture至少支持16纹素.
+
+**`height`**
+
+纹理图像的宽。3D Texture至少支持256纹素.
+
+**`depth`**
+
+纹理图像的深度。如果是纹理数组，则表示数组的大小。3D Texture至少支持256个深度。纹理数组至少支持256个元素。
+
+**`border`**
+
+必须为0.
+
+**`format`**
+
+外部图像的数据格式. `GL_RED`, `GL_RG`, `GL_RGB`, `GL_BGR`, `GL_RGBA`, `GL_BGRA`, `GL_RED_INTEGER`, `GL_RG_INTEGER`, `GL_RGB_INTEGER`, `GL_BGR_INTEGER`, `GL_RGBA_INTEGER`, `GL_BGRA_INTEGER`, `GL_STENCIL_INDEX`, `GL_DEPTH_COMPONENT`, `GL_DEPTH_STENCIL`.
+
+**`type`**
+
+外部图像的数据类型。The following symbolic values are accepted: `GL_UNSIGNED_BYTE`, `GL_BYTE`, `GL_UNSIGNED_SHORT`, `GL_SHORT`, `GL_UNSIGNED_INT`, `GL_INT`, `GL_HALF_FLOAT`, `GL_FLOAT`, `GL_UNSIGNED_BYTE_3_3_2`, `GL_UNSIGNED_BYTE_2_3_3_REV`, `GL_UNSIGNED_SHORT_5_6_5`, `GL_UNSIGNED_SHORT_5_6_5_REV`, `GL_UNSIGNED_SHORT_4_4_4_4`, `GL_UNSIGNED_SHORT_4_4_4_4_REV`, `GL_UNSIGNED_SHORT_5_5_5_1`, `GL_UNSIGNED_SHORT_1_5_5_5_REV`, `GL_UNSIGNED_INT_8_8_8_8`, `GL_UNSIGNED_INT_8_8_8_8_REV`, `GL_UNSIGNED_INT_10_10_10_2`, and `GL_UNSIGNED_INT_2_10_10_10_REV`.
+
+**`data`**
+
+Specifies a pointer to the image data in memory.
+
+如果为NULL则不读取数据。对于部分类型的纹理对象也不读取数据。
+
 # Table
 
 ## table1
@@ -795,3 +911,99 @@ Specifies a pointer to the image data in memory.
 ## table2
 
 `GL_STREAM_DRAW`, `GL_STREAM_READ`, `GL_STREAM_COPY`, `GL_STATIC_DRAW`, `GL_STATIC_READ`, `GL_STATIC_COPY`, `GL_DYNAMIC_DRAW`, `GL_DYNAMIC_READ`, or `GL_DYNAMIC_COPY`.
+
+## table3
+
+| **Base Internal Format** | **RGBA, Depth and Stencil Values** | **Internal Components** |
+| :----------------------- | :--------------------------------- | :---------------------- |
+| `GL_DEPTH_COMPONENT`     | Depth                              | D                       |
+| `GL_DEPTH_STENCIL`       | Depth, Stencil                     | D, S                    |
+| `GL_RED`                 | Red                                | R                       |
+| `GL_RG`                  | Red, Green                         | R, G                    |
+| `GL_RGB`                 | Red, Green, Blue                   | R, G, B                 |
+| `GL_RGBA`                | Red, Green, Blue, Alpha            | R, G, B, A              |
+
+## table4
+
+| **Sized Internal Format** | **Base Internal Format** | **Red Bits** | **Green Bits** | **Blue Bits** | **Alpha Bits** | **Shared Bits** |
+| :------------------------ | :----------------------- | :----------- | :------------- | :------------ | :------------- | :-------------- |
+| `GL_R8`                   | `GL_RED`                 | 8            |                |               |                |                 |
+| `GL_R8_SNORM`             | `GL_RED`                 | s8           |                |               |                |                 |
+| `GL_R16`                  | `GL_RED`                 | 16           |                |               |                |                 |
+| `GL_R16_SNORM`            | `GL_RED`                 | s16          |                |               |                |                 |
+| `GL_RG8`                  | `GL_RG`                  | 8            | 8              |               |                |                 |
+| `GL_RG8_SNORM`            | `GL_RG`                  | s8           | s8             |               |                |                 |
+| `GL_RG16`                 | `GL_RG`                  | 16           | 16             |               |                |                 |
+| `GL_RG16_SNORM`           | `GL_RG`                  | s16          | s16            |               |                |                 |
+| `GL_R3_G3_B2`             | `GL_RGB`                 | 3            | 3              | 2             |                |                 |
+| `GL_RGB4`                 | `GL_RGB`                 | 4            | 4              | 4             |                |                 |
+| `GL_RGB5`                 | `GL_RGB`                 | 5            | 5              | 5             |                |                 |
+| `GL_RGB8`                 | `GL_RGB`                 | 8            | 8              | 8             |                |                 |
+| `GL_RGB8_SNORM`           | `GL_RGB`                 | s8           | s8             | s8            |                |                 |
+| `GL_RGB10`                | `GL_RGB`                 | 10           | 10             | 10            |                |                 |
+| `GL_RGB12`                | `GL_RGB`                 | 12           | 12             | 12            |                |                 |
+| `GL_RGB16_SNORM`          | `GL_RGB`                 | 16           | 16             | 16            |                |                 |
+| `GL_RGBA2`                | `GL_RGB`                 | 2            | 2              | 2             | 2              |                 |
+| `GL_RGBA4`                | `GL_RGB`                 | 4            | 4              | 4             | 4              |                 |
+| `GL_RGB5_A1`              | `GL_RGBA`                | 5            | 5              | 5             | 1              |                 |
+| `GL_RGBA8`                | `GL_RGBA`                | 8            | 8              | 8             | 8              |                 |
+| `GL_RGBA8_SNORM`          | `GL_RGBA`                | s8           | s8             | s8            | s8             |                 |
+| `GL_RGB10_A2`             | `GL_RGBA`                | 10           | 10             | 10            | 2              |                 |
+| `GL_RGB10_A2UI`           | `GL_RGBA`                | ui10         | ui10           | ui10          | ui2            |                 |
+| `GL_RGBA12`               | `GL_RGBA`                | 12           | 12             | 12            | 12             |                 |
+| `GL_RGBA16`               | `GL_RGBA`                | 16           | 16             | 16            | 16             |                 |
+| `GL_SRGB8`                | `GL_RGB`                 | 8            | 8              | 8             |                |                 |
+| `GL_SRGB8_ALPHA8`         | `GL_RGBA`                | 8            | 8              | 8             | 8              |                 |
+| `GL_R16F`                 | `GL_RED`                 | f16          |                |               |                |                 |
+| `GL_RG16F`                | `GL_RG`                  | f16          | f16            |               |                |                 |
+| `GL_RGB16F`               | `GL_RGB`                 | f16          | f16            | f16           |                |                 |
+| `GL_RGBA16F`              | `GL_RGBA`                | f16          | f16            | f16           | f16            |                 |
+| `GL_R32F`                 | `GL_RED`                 | f32          |                |               |                |                 |
+| `GL_RG32F`                | `GL_RG`                  | f32          | f32            |               |                |                 |
+| `GL_RGB32F`               | `GL_RGB`                 | f32          | f32            | f32           |                |                 |
+| `GL_RGBA32F`              | `GL_RGBA`                | f32          | f32            | f32           | f32            |                 |
+| `GL_R11F_G11F_B10F`       | `GL_RGB`                 | f11          | f11            | f10           |                |                 |
+| `GL_RGB9_E5`              | `GL_RGB`                 | 9            | 9              | 9             |                | 5               |
+| `GL_R8I`                  | `GL_RED`                 | i8           |                |               |                |                 |
+| `GL_R8UI`                 | `GL_RED`                 | ui8          |                |               |                |                 |
+| `GL_R16I`                 | `GL_RED`                 | i16          |                |               |                |                 |
+| `GL_R16UI`                | `GL_RED`                 | ui16         |                |               |                |                 |
+| `GL_R32I`                 | `GL_RED`                 | i32          |                |               |                |                 |
+| `GL_R32UI`                | `GL_RED`                 | ui32         |                |               |                |                 |
+| `GL_RG8I`                 | `GL_RG`                  | i8           | i8             |               |                |                 |
+| `GL_RG8UI`                | `GL_RG`                  | ui8          | ui8            |               |                |                 |
+| `GL_RG16I`                | `GL_RG`                  | i16          | i16            |               |                |                 |
+| `GL_RG16UI`               | `GL_RG`                  | ui16         | ui16           |               |                |                 |
+| `GL_RG32I`                | `GL_RG`                  | i32          | i32            |               |                |                 |
+| `GL_RG32UI`               | `GL_RG`                  | ui32         | ui32           |               |                |                 |
+| `GL_RGB8I`                | `GL_RGB`                 | i8           | i8             | i8            |                |                 |
+| `GL_RGB8UI`               | `GL_RGB`                 | ui8          | ui8            | ui8           |                |                 |
+| `GL_RGB16I`               | `GL_RGB`                 | i16          | i16            | i16           |                |                 |
+| `GL_RGB16UI`              | `GL_RGB`                 | ui16         | ui16           | ui16          |                |                 |
+| `GL_RGB32I`               | `GL_RGB`                 | i32          | i32            | i32           |                |                 |
+| `GL_RGB32UI`              | `GL_RGB`                 | ui32         | ui32           | ui32          |                |                 |
+| `GL_RGBA8I`               | `GL_RGBA`                | i8           | i8             | i8            | i8             |                 |
+| `GL_RGBA8UI`              | `GL_RGBA`                | ui8          | ui8            | ui8           | ui8            |                 |
+| `GL_RGBA16I`              | `GL_RGBA`                | i16          | i16            | i16           | i16            |                 |
+| `GL_RGBA16UI`             | `GL_RGBA`                | ui16         | ui16           | ui16          | ui16           |                 |
+| `GL_RGBA32I`              | `GL_RGBA`                | i32          | i32            | i32           | i32            |                 |
+| `GL_RGBA32UI`             | `GL_RGBA`                | ui32         | ui32           | ui32          | ui32           |                 |
+
+## table5
+
+| **Compressed Internal Format**          | **Base Internal Format** | **Type** |
+| :-------------------------------------- | :----------------------- | :------- |
+| `GL_COMPRESSED_RED`                     | `GL_RED`                 | Generic  |
+| `GL_COMPRESSED_RG`                      | `GL_RG`                  | Generic  |
+| `GL_COMPRESSED_RGB`                     | `GL_RGB`                 | Generic  |
+| `GL_COMPRESSED_RGBA`                    | `GL_RGBA`                | Generic  |
+| `GL_COMPRESSED_SRGB`                    | `GL_RGB`                 | Generic  |
+| `GL_COMPRESSED_SRGB_ALPHA`              | `GL_RGBA`                | Generic  |
+| `GL_COMPRESSED_RED_RGTC1`               | `GL_RED`                 | Specific |
+| `GL_COMPRESSED_SIGNED_RED_RGTC1`        | `GL_RED`                 | Specific |
+| `GL_COMPRESSED_RG_RGTC2`                | `GL_RG`                  | Specific |
+| `GL_COMPRESSED_SIGNED_RG_RGTC2`         | `GL_RG`                  | Specific |
+| `GL_COMPRESSED_RGBA_BPTC_UNORM`         | `GL_RGBA`                | Specific |
+| `GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM`   | `GL_RGBA`                | Specific |
+| `GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT`   | `GL_RGB`                 | Specific |
+| `GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT` | `GL_RGB`                 | Specific |

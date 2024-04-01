@@ -2000,3 +2000,19 @@ bool Find(vector<int>& arr, int target, int& ind )
         return arr[ind] == target;
     }
 ```
+
+## 插入图片
+
+```latex
+% 图片支持
+\usepackage{graphicx}
+\usepackage{epstopdf}
+
+\begin{figure}[htbp]
+	\centering
+	\includegraphics[scale=1.0]{./img/input.eps}
+	\caption{figure title}
+	\label{figure}
+\end{figure}
+```
+
