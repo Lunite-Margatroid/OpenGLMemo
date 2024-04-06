@@ -1,3 +1,32 @@
+## Debug
+
+```c++
+#define ASSERT(x) if(!(x)) __debugbreak();
+#define GLCall(x) GLClearError();\
+		x;\
+		ASSERT(GLLogCall(#x, __FILE__, __LINE__))
+void GLClearError();
+bool GLLogCall(const char* function, const char* file, int line);
+
+void GLClearError()
+{
+	while (glGetError() != GL_NO_ERROR);
+}
+
+bool GLLogCall(const char* function, const char* file, int line)
+{
+	while (GLenum error = glGetError())
+	{
+		std::cout << "[OpenGL Error] (" << error << "): " <<
+			function << " file: " << file << "  line: " << line << std::endl;
+		return false;
+	}
+	return true;
+}
+```
+
+
+
 ## 顶点缓冲 VertexBuffer
 
 ```c++
@@ -148,6 +177,12 @@ int Shader::GetUniformLocation(const std::string& valueName)
 	}
 ```
 
+## 细分着色器
+
+### 细分控制着色器
+
+
+
 ## 2D纹理 Texture
 
 ```c++
@@ -168,6 +203,8 @@ glGenerateMipmap(GL_TEXTURE_2D);	// 自动生成多级渐远级别纹理(mipmap)
 ```
 
 如果不调用`glGenerateMipmap(GL_TEXTURE_2D);`会报错。<font color = "red">存疑</font>
+
+
 
 ### 环绕方式和插值方式
 
@@ -207,6 +244,51 @@ glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
 `GL_NEAREST_MIPMAP_LINEAR`选择最邻近的两个mipmap分别线性插值，得到两个值，然后取这两个值的平均
 
 `GL_LINEAR_MIPMAP_LINEAR`选择最邻近的两个mipmap分别线性插值，得到两个值，然后取这两个值的加权平均（线性插值）
+
+## 2D纹理数组 2D Texture Array
+
+采样器使用`Sampler2DArray`. 纹理坐标的第三维度为整数，是数组索引。
+
+### 在文字渲染的应用
+
+```c++
+for(int i =0;i<128;i++)
+		{
+			char ch = (char)i;
+			if (FT_Load_Char(face, ch, FT_LOAD_RENDER))
+				std::cout << "[error] Failed to load Glyph.\n";
+			m_TypeAttrib[(size_t)ch].width = face->glyph->bitmap.width;
+			m_TypeAttrib[(size_t)ch].height = face->glyph->bitmap.rows;
+			m_TypeAttrib[(size_t)ch].beartingY = face->glyph->bitmap_top;
+			m_TypeAttrib[(size_t)ch].character = ch;
+			GLCall(glTexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 
+				0, 0, i, 
+				m_TypeAttrib[(size_t)ch].width, m_TypeAttrib[(size_t)ch].height, 1,
+				GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer));
+		}
+```
+
+### 着色器
+
+```glsl
+#version 330 core
+
+in vec2 TexCoord;
+
+out vec4 FragColor;
+uniform sampler2DArray u_Tex;
+uniform float u_TexIdx;	// 整数  是一个索引
+void main()
+{
+	float f = texture(u_Tex, vec3(TexCoord, u_TexIdx)).r;
+	FragColor = vec4(1.0f, 1.0f, 1.0f,f);
+
+}
+```
+
+
+
+
 
 ## 几何着色器
 
@@ -516,7 +598,40 @@ FT_Load_Char(face, L'啊', FT_LOAD_RENDER);
 
 ```
 
+### 写入纹理缓存
 
+```c++
+glPixelStorei(GL_UNPACK_ALIGNMENT, 1);	// 内存对齐设置为1
+
+glGenTextures(1, &m_Texture);
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, m_Texture);
+
+m_TexWidth = face->glyph->bitmap.width;
+m_TexHeight = face->glyph->bitmap.rows;
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, m_TexWidth, m_TexHeight, 0,
+			GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+glGenerateMipmap(GL_TEXTURE_2D);
+
+glPixelStorei(GL_UNPACK_ALIGNMENT, 4);// 内存对齐设置为4（默认值）
+```
+
+### 文本纹理属性
+
+![typeattrib](./img/glyph.png)
+
+| **width**    | `face->glyph->bitmap.width` | 位图宽度（像素）                                             |
+| ------------ | --------------------------- | ------------------------------------------------------------ |
+| **height**   | `face->glyph->bitmap.rows`  | 位图高度（像素）                                             |
+| **bearingX** | `face->glyph->bitmap_left`  | 水平距离，即位图相对于原点的水平位置（像素）                 |
+| **bearingY** | `face->glyph->bitmap_top`   | 垂直距离，即位图相对于基准线的垂直位置（像素）               |
+| **advance**  | `face->glyph->advance.x`    | 水平预留值，即原点到下一个字形原点的水平距离（单位：1/64像素） |
 
 # 函数
 
@@ -886,6 +1001,90 @@ Specifies a pointer to the image data in memory.
 Specifies a pointer to the image data in memory.
 
 如果为NULL则不读取数据。对于部分类型的纹理对象也不读取数据。
+
+## glTexSubImage3D
+
+| void glTexSubImage3D( | GLenum target,        |
+| --------------------- | --------------------- |
+|                       | GLint level,          |
+|                       | GLint xoffset,        |
+|                       | GLint yoffset,        |
+|                       | GLint zoffset,        |
+|                       | GLsizei width,        |
+|                       | GLsizei height,       |
+|                       | GLsizei depth,        |
+|                       | GLenum format,        |
+|                       | GLenum type,          |
+|                       | const void * pixels); |
+
+ 
+
+| void glTextureSubImage3D(  | GLuint texture,      |
+| -------------------------- | -------------------- |
+| glTexSubImage3D的named版本 | GLint level,         |
+|                            | GLint xoffset,       |
+|                            | GLint yoffset,       |
+|                            | GLint zoffset,       |
+|                            | GLsizei width,       |
+|                            | GLsizei height,      |
+|                            | GLsizei depth,       |
+|                            | GLenum format,       |
+|                            | GLenum type,         |
+|                            | const void *pixels); |
+
+**`target`**
+
+操作对象类型。Must be `GL_TEXTURE_3D` or `GL_TEXTURE_2D_ARRAY`.
+
+**`texture`**
+
+操作纹理对象的名称
+
+**`level`**
+
+mipmap 多级渐远等级
+
+**`xoffset`**
+
+x偏移量。单位像素。Specifies a texel offset in the x direction within the texture array.
+
+**`yoffset`**
+
+y偏移量。单位像素。Specifies a texel offset in the y direction within the texture array.
+
+**`zoffset`**
+
+z的偏移量。单位像素。如果是2D Texture数组，表示数组的索引。Specifies a texel offset in the z direction within the texture array.
+
+**`width`**
+
+填充数据宽度，单位像素。Specifies the width of the texture subimage.
+
+**`height`**
+
+填充数据高度，单位像素。Specifies the height of the texture subimage.
+
+**`depth`**
+
+填充数据的深度。Specifies the depth of the texture subimage.
+
+**`format`**
+
+源数据的数据格式。Specifies the format of the pixel data. The following symbolic values are accepted: `GL_RED`, `GL_RG`, `GL_RGB`, `GL_BGR`, `GL_RGBA`, `GL_DEPTH_COMPONENT`, and `GL_STENCIL_INDEX`.
+
+**`type`**
+
+源数据的数据类型。
+
+Specifies the data type of the pixel data. The following symbolic values are accepted: `GL_UNSIGNED_BYTE`, `GL_BYTE`, `GL_UNSIGNED_SHORT`, `GL_SHORT`, `GL_UNSIGNED_INT`, `GL_INT`, `GL_FLOAT`, `GL_UNSIGNED_BYTE_3_3_2`, `GL_UNSIGNED_BYTE_2_3_3_REV`, `GL_UNSIGNED_SHORT_5_6_5`, `GL_UNSIGNED_SHORT_5_6_5_REV`, `GL_UNSIGNED_SHORT_4_4_4_4`, `GL_UNSIGNED_SHORT_4_4_4_4_REV`, `GL_UNSIGNED_SHORT_5_5_5_1`, `GL_UNSIGNED_SHORT_1_5_5_5_REV`, `GL_UNSIGNED_INT_8_8_8_8`, `GL_UNSIGNED_INT_8_8_8_8_REV`, `GL_UNSIGNED_INT_10_10_10_2`, and `GL_UNSIGNED_INT_2_10_10_10_REV`.
+
+**`pixels`**
+
+指向源数据的指针。
+
+Specifies a pointer to the image data in memory.
+
+
 
 # Table
 
