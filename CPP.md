@@ -448,13 +448,13 @@ int main()
 
 带参define和字符串连接，用到的时候再查。
 
-通过宏判断Configuration。debug模式下要log日志，在release模式下不需要。
+通过宏判断Configuration。debug模式下和在release模式log日志的filter不同。
 
 ```c++
 #ifdef _DEBUG
 #define LOG(x) ...// do something to log
 #else
-#define LOG(x)	// nothing
+#define LOG(x)	// to do something
 #endif
 ```
 
@@ -518,6 +518,49 @@ int main()
 
 ## std::function（待补充）
 
+### 一般用法
+
+```c++
+int plus(int a, int b)
+{
+    return a+b;
+}
+
+std::function<int(int, int)> func_plus = plus;
+```
+
+### lambda
+
+```c++
+std::function<int(int, int)> func_plus = [](int a,int b)->int{ return a + b;}
+```
+
+### 静态成员 & 非静态成员
+
+```c++
+class plus_class{
+    public:
+        inline int plus(int a,int b)
+        {
+            return a + b;
+        }
+ 
+        static int plus_static(int a,int b)
+        {
+            return a + b;
+        }
+} instance;
+
+// 非静态成员
+std::function<int(int, int)> f1 = std::bind(&plus_class::plus, instance, std::placeholders::_1, std::placeholders::_2);
+// 静态成员
+std::function<int(int, int)> f2 = plus_class::plus_static;
+```
+
+## 仿函数（待补充）
+
+
+
 
 
 ## std::find_if（待补充）
@@ -526,7 +569,7 @@ int main()
 
 ## 位移符号优先级
 
- <<   >> 的优先级比+ -低
+ **左移右移运算符 <<   >> 的优先级比+ -低**  这个总是搞错
 
 ## namespace
 
@@ -1974,6 +2017,87 @@ int main()
 }
 ```
 
+## nodiscard
+
+c++ 17 and newer
+
+### 标记函数
+
+标记为非弃值函数
+
+```c++
+[[nodiscard]] int plus(int a, int b)
+{
+    return a + b;
+}
+int main()
+{
+    plus(4, 5);								// warning
+    int c = plus(9, 2);						// no warning
+	std::static_cast<void>(plus(3, 65));	// no warning
+    return 0;
+}
+```
+
+### 标记类，结构体，枚举
+
+```c++
+class  [[nodiscard]] A {};
+struct class [[nodiscard]] S {};
+enum [[nodiscard]] E {a, b};
+
+A CreateA()
+{
+    return A();
+}
+
+S CreateS()
+{
+    return S();
+}
+
+E CreateE()
+{
+    return E::a;
+}
+
+A* CreateAPtr()
+{
+    return new A();
+}
+
+A& CreateARef()
+{
+    A* a = new A();
+    return *a;
+}
+
+int main()
+{
+	CreateA();	// warning
+    CreateS();	// warning
+    CreateE();	// warning
+    
+    CreateAPtr();	// no warning
+    CreateARef();	// no warning
+    
+    return 0;
+}
+```
+
+### 提示信息
+
+c++20 and newer
+
+```c++
+[[nodiscard("message")]] int plus(int a, int b)
+{
+    return a + b;
+}
+```
+
+
+
 ## 二分查找
 
 因为边界问题总是搞不清楚，直接保存一个写好的得了。
@@ -2001,18 +2125,140 @@ bool Find(vector<int>& arr, int target, int& ind )
     }
 ```
 
-## 插入图片
+## KMP
 
-```latex
-% 图片支持
-\usepackage{graphicx}
-\usepackage{epstopdf}
+```c++
+template<typename T>
+	void GetNextArr(const T* t, int len_t, int* next)
+	{
+		if (len_t == 1)
+		{
+			next[0] = 0;
+			return;
+		}
+		int i = 1; // 主串指针
+		int j = 0;  // 子串指针
+		next[0] = 0;
+		next[1] = 0;
+		while (i < len_t - 1 && j < len_t - 1)
+		{
+			if (t[i] == t[j])
+			{
+				i++; j++;
+				next[i] = j;
+			}
+			else if (j == 0)
+			{
+				i++;
+				next[i] = 0;
+			}
+			else
+			{
+				j = next[j];
+			}
+		}
+	}
 
-\begin{figure}[htbp]
-	\centering
-	\includegraphics[scale=1.0]{./img/input.eps}
-	\caption{figure title}
-	\label{figure}
-\end{figure}
+	template<typename T>
+	vector<int> kmp(const T* s, const T* t, int len_s, int len_t, int stride, int offset)
+	{
+		int* next = new int[len_t];
+		GetNextArr(t, len_t, next);
+		int i = offset;  // 主串指针
+		int j = 0; // 子串指针
+		vector<int> ret;
+		while (i < len_s)
+		{
+			if (s[i] == t[j])
+			{
+				i += stride;
+				j += 1;
+				if (j == len_t)
+				{
+					int t = i - (j * stride);
+					ret.push_back(t);
+					i = t + stride;
+					j = 0;
+				}
+			}
+			else if (j == 0)
+			{
+				i += stride;
+			}
+			else
+			{
+				j = next[j];
+			}
+		}
+
+		delete[] next;
+		return ret;
+	}
+```
+
+
+
+## 堆排序
+
+写leetcode的题目总是会用到排序。
+
+```c++
+void Swap(int& a, int& b)
+	{
+		a = a ^ b;
+		b = a ^ b;
+		a = a ^ b;
+	}
+	void ProcNode(vector<int>& arr, int node, int n)
+	{
+		while (node < n / 2)
+		{
+			int left = node * 2 + 1;
+			int right = node * 2 + 2;
+			if (left >= n)  // 没有左子节点
+				return;
+			if (right >= n) // 没有右子节点
+			{
+				if (arr[left] > arr[node])
+				{
+					Swap(arr[left], arr[node]);
+				}
+				return;
+			}
+			if (arr[node] >= arr[left] && arr[node] >= arr[right])  // node是最大节点
+			{
+				return;
+			}
+
+			if (arr[left] > arr[right])  // 左节点大
+			{
+				Swap(arr[left], arr[node]);
+				node = left;
+			}
+			else    // right is greater
+			{
+				Swap(arr[right], arr[node]);
+				node = right;
+			}
+		}
+	}
+	void BuildHeap(vector<int>& arr, int n)
+	{
+		for (int i = n / 2; i >= 0; i--)
+		{
+			ProcNode(arr, i, n);
+		}
+	}
+
+	void HeapSort(vector<int>& arr, int n)
+	{
+		BuildHeap(arr, n);
+		while (n > 1)
+		{
+			Swap(arr[0], arr[n - 1]);
+			n--;
+			ProcNode(arr, 0, n);
+		}
+	}
 ```
 

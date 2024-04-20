@@ -25,6 +25,28 @@ bool GLLogCall(const char* function, const char* file, int line)
 }
 ```
 
+## glm
+
+通常include的头文件
+
+```c++
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+```
+
+
+
+## ImGui
+
+通常include的头文件
+
+```c++
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+```
+
 
 
 ## 顶点缓冲 VertexBuffer
@@ -57,6 +79,8 @@ glDeleteBuffer(1, &ebo);
 
 ## 顶点数组 VertexArray
 
+<font color = "red">我也不知道为什么。但是，一定要把Bind和属性设置放到一个函数里边。</font>
+
 ```c++
 unsigned int vao;
 glGenVertexArrays(1, &vao);
@@ -72,6 +96,8 @@ for()
 }
 glDeleteVertexArrays(1, &vao);
 ```
+
+
 
 ## 着色器 Shader
 
@@ -633,15 +659,55 @@ glPixelStorei(GL_UNPACK_ALIGNMENT, 4);// 内存对齐设置为4（默认值）
 | **bearingY** | `face->glyph->bitmap_top`   | 垂直距离，即位图相对于基准线的垂直位置（像素）               |
 | **advance**  | `face->glyph->advance.x`    | 水平预留值，即原点到下一个字形原点的水平距离（单位：1/64像素） |
 
+## TranformFeedback
+
+把着色器的数据写入到缓冲对象中
+
+### 创建Feedback缓冲
+
+```c++
+// 准备两个缓冲
+unsigned int tfBuffer;
+glGenBuffer(GL_ARRAY_BUFFER, &tfBuffer);
+glBindBuffer(GL_ARRAY_BUFFER, tfBuffer);
+GLenum usage = GL_DYNAMIC_COPY;
+glBufferData(GL_ARRAY_BUFFER, size, data, usage);
+```
+
+### TransformFeedback对象
+
+```c++
+// 创建对象
+unsigned int tfObj;
+glGenTransformFeedbacks(1, &tfObj);
+// 删除对象
+glDeleteTransformFeedbacks(1, &tfObj);
+// 绑定对象
+glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, m_tfID)
+```
+
+### 绑定缓冲到TransformFeedback对象
+
+```c++
+giBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfBuffer);
+glBindBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tfBuffer, offset, size);
+// or
+// 下面是named版本
+glTransformFeedbackBufferBase(fgObj, 0, tfBuffer);
+glTransformFeedbackBufferRange(fgObj, 0, tfBuffer, offset, size);
+```
+
+
+
 # 函数
 
 ## glBufferData
 
-| `void **glBufferData**(` | GLenum target,     |
-| ------------------------ | ------------------ |
-|                          | GLsizeiptr size,   |
-|                          | const void * data, |
-|                          | GLenum usage`)`;   |
+| `void glBufferData(` | GLenum target,     |
+| -------------------- | ------------------ |
+|                      | GLsizeiptr size,   |
+|                      | const void * data, |
+|                      | GLenum usage`)`;   |
 
 **target:**
 

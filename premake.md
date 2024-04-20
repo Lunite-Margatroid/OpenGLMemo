@@ -30,9 +30,33 @@ visual stdio的runtime lib(运行库)有四个选项:
 
 link的static lib要和项目的runtime lib相同.
 
-premake`runtime "Release"`和`runtime "Debug"`分别是`Muti-threaded`和`Muti-threaded Debug`
+premake`runtime "Release"`,`runtime "Debug"`,`staticruntime "off"`, `staticruntime "on"`影响这些选项
 
 如果编译时出现“未解析外部符号”的异常，那么可能是这里出了问题。
+
+## 启动项目
+
+```lua
+workspace "ParticleTest"
+	architecture "x64"
+	startproject "ParticleTest"	-- 这里
+	configurations
+	{
+		"Debug",
+		"Release",
+		"Dist"
+	}
+```
+
+## systemversion
+
+```lua
+systemversion "10.0.22000.0" 	-- 写一个版本号
+or
+systemversion "latest" 			-- 最新版本
+```
+
+
 
 ## 示例1
 
