@@ -56,6 +56,19 @@ or
 systemversion "latest" 			-- 最新版本
 ```
 
+## dll的后建命令
+
+```lua
+postbuildcommands	-- 后构建指令  dll使用
+		{
+			("{COPY} %{cfg.buildtarget.relpath} ../bin/" ..outputdir.. "/App")
+		}
+```
+
+
+
+
+
 
 
 ## 示例1

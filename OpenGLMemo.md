@@ -79,7 +79,7 @@ glDeleteBuffer(1, &ebo);
 
 ## 顶点数组 VertexArray
 
-<font color = "red">我也不知道为什么。但是，一定要把Bind和属性设置放到一个函数里边。</font>
+一定要把绘制用的顶点缓冲绑定到GL_ARRAY_BUFFER上。在使用TransformFeedback时容易搞错。
 
 ```c++
 unsigned int vao;
@@ -95,6 +95,40 @@ for()
 	glEnableVertexAttribArray(i);
 }
 glDeleteVertexArrays(1, &vao);
+```
+
+## 帧缓冲 Framebuffer
+
+### 创建帧缓冲
+
+```c++
+unsigned int uFramebuffer;
+unsigned int uRenderbuffer;
+unsigned int uTexture;
+glGenFramebuffers(1, &uFramebuffer);	// 创建帧缓冲对象
+glBindFramebuffer(GL_FRAMEBUFFER, uFramebuffer);	// 绑定帧缓冲对象
+
+glGenTextures(1, &uTexture);	// 创建纹理  作为帧缓冲的颜色附件
+glBindTexture(GL_TEXTURE_2D, uTexture);	// 绑定纹理对象
+glTexture2D(GL_TEXTURE_2D, 0, GL_RGBA, WIDTH, HEIGHT, 0 ,GL_RGB,GL_UNSIGNED_BYTE ,NULL); //为纹理分配内存
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,GL_LINEAR);	// 缩小插值方式
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,GL_LINEAR);	// 放大插值方式
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, uTexture, 0);	// 纹理绑定到帧缓冲的颜色附件
+
+
+glGenRenderbuffers(1, &uRenderbuffer);	// 创建渲染缓冲对象 用于深度缓冲和模版缓冲
+glBindRenderbuffer(GL_RENDERBUFFER, uRenderbuffer);	// 绑定渲染缓冲对象
+glRenderbufferStrage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, WIDTH, HEIGHT);	// 为渲染缓冲对象分配内存
+glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER, uRenderbuffer);	// 绑定渲染缓冲对象到帧缓冲
+
+if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFER_COMPLETE)
+    std::cout << "[error] Framebuffer is not complete!\n"
+
+
+glBindFramebuffer(GL_FRAMEBUFFER, 0);
+glBindTexture(GL_TEXTURE_2D, 0);
+glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
 ```
 
 
@@ -228,7 +262,7 @@ glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);	// 设置插�
 glGenerateMipmap(GL_TEXTURE_2D);	// 自动生成多级渐远级别纹理(mipmap)
 ```
 
-如果不调用`glGenerateMipmap(GL_TEXTURE_2D);`会报错。<font color = "red">存疑</font>
+
 
 
 
@@ -271,6 +305,10 @@ glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, color);
 
 `GL_LINEAR_MIPMAP_LINEAR`选择最邻近的两个mipmap分别线性插值，得到两个值，然后取这两个值的加权平均（线性插值）
 
+**使用带有`MIPMAP`的参数必须设置多级渐进纹理。**
+
+调用`glGenerateMipmap(GLenum target);`或者手动设置
+
 ## 2D纹理数组 2D Texture Array
 
 采样器使用`Sampler2DArray`. 纹理坐标的第三维度为整数，是数组索引。
@@ -312,7 +350,52 @@ void main()
 }
 ```
 
+## 天空盒
 
+### 应用程序代码
+
+```c++
+// 创建立方体贴图
+unsigned int cubeTexture;
+glGenTextures(1, &cubeTexture);
+glBindTexture(GL_TEXTURE_CUBE_MAP, cubeTexture);
+
+// 为纹理对象分配空间 并 初始化数据
+for(int i = 0;i < 6;i++)
+{
+    unsigned char *data = ...;
+    glTexImage2D(
+    	GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+        ...
+    );
+}
+
+// 设置滤波方式 和 环绕方式
+glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+```
+
+### cube texture 的6个纹理对象
+
+`GL_TEXTURE_CUBE_MAP_POSITIVE_X`, `GL_TEXTURE_CUBE_MAP_NEGATIVE_X`, `GL_TEXTURE_CUBE_MAP_POSITIVE_Y`, `GL_TEXTURE_CUBE_MAP_NEGATIVE_Y`, `GL_TEXTURE_CUBE_MAP_POSITIVE_Z`, `GL_TEXTURE_CUBE_MAP_NEGATIVE_Z`
+
+### 着色器代码
+
+```glsl
+in vec3 textureDir;
+uniform samplerCube u_CubeMap;
+
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = texture(u_CubeMap, textureDir);
+}
+```
 
 
 
@@ -697,7 +780,357 @@ glTransformFeedbackBufferBase(fgObj, 0, tfBuffer);
 glTransformFeedbackBufferRange(fgObj, 0, tfBuffer, offset, size);
 ```
 
+### 加载变量名
 
+```c++
+// unsigned int program  着色器程序id
+int count = 3;
+char** strs = 
+{
+    "out_Pos", "out_Vel", "out_Time"
+};
+GLenum bufferMode = GL_INTERLEAVED_ATTRIBS;		// or GL_SEPARATE_ATTRIBS
+glTransformFeedbackVaryings(program, count, strs, bufferMode);
+glLinkProgram(program)
+```
+
+另有一些内置变量名：
+
+`gl_SkipComponents`
+
+### 绘制
+
+```c++
+GLenum primitiveMode = GL_POINTS;	// 必须和draw指令的图元类型相同
+glBeginTransformFeedback(primitiveMode);	// 开启transform feedback
+// .... Draw .....
+glEndTransformFeedback();					// 结束transform feedback
+
+glPauseTransformFeedback();					// 暂停
+glResumeTransformFeedback();				// 恢复
+```
+
+## 图元重启动
+
+在一次绘制命令中绘制多个`STRIP`,`FAN`图元.
+
+`void glPrimitiveRestartIndex(GLuint index)`
+
+函数的参数是一个顶点的索引，当`DrawElement`遇到`index`时，不会绘制这个点，然后把`index+1`作为另一个图元的第一个顶点。实际应用中，把`index`设为`0xffffffff`之类的不可能与有效索引重复的索引。
+
+```c++
+unsigned int indice[] = 
+{
+    0,1,2,3,		// 第一个strip图元
+    0xffffffff,
+    4,5,6,7			// 第二个strip图元
+};
+```
+
+## OIT 与顺序无关的透明
+
+### linked list oit
+
+#### 初始化
+
+```c++
+#define MAX_FRAMEBUFFER_WIDTH 2048
+#define MAX_FRAMEBUFFER_HEIGHT 2048
+
+GLunit* data;
+size_t total_pixels = MAX_FRAMEBUFFER_WIDTH * MAX_FRAMEBUFFER_HEIGHT;
+
+/*----------------创建 头指针缓存------------*/
+// 2D 图像 单通道 每个像素为32位无符号整形
+// 用来储存对应像素颜色混合链表的头指针
+// 头指针准确说是头节点相对于基址的偏移量
+GLuint head_pointer_texture;
+glGenTextures(1, &head_pointer_texture);
+glBindTexture(GL_TEXTURE_2D, head_pointer_texture);
+glTexImage2D(GL_TEXTURE_2D, // target
+             0,				// mipmap level
+            GL_R32UI,		// 内部格式 单通道 数据类型为32位无符号整形
+            MAX_FRAMEBUFFER_WIDTH,
+            MAX_FRAMEBUFFER_HEIGHT,
+            0,				// boarder 无边界
+            GL_RED_INTEGER, // 数据格式 单通道 整形
+            GL_UNSIGNED_INT,// 数据格式 无符号整形
+            NULL);
+
+/*----------------创建 头指针初始化 缓存------------*/
+// 创建用于初始化链表头指针矩阵的缓存
+// 每一帧都要重新初始化 即把头指针全部设为空
+// 用0xffffffff作为空指针的标志 即无符号整形的最大值
+// 初始化缓存的大小和链表头指针大小缓存相同
+// 初始化之后 头指针都为0xffffffff 即空指针
+// 这就必须保证 储蓄混合颜色的缓冲的大小不能大于4G 当然一般也不会超过
+GLuint head_pointer_initializer;
+glGenBuffers(1, &head_pointer_initializer);
+glBindBuffer(GL_PIXEL_UNPACK_BUFFER, head_pointer_initializer);
+glBufferData(GL_PIXEL_UNPACK_BUFFER,
+            total_pixels * sizeof(GLuint),
+            NULL,
+            GL_STATIC_DRAW);
+// 建立映射 只写
+data = (GLuint)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+// 按字节 赋值为0xff
+memset(data, 0xff, total_pixels * sizeof(GLuint));
+// 销毁映射
+glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+
+/*--------------------创建原子计数器----------------------*/
+// 原子计数器
+// 一个地址的偏移量 记录有效颜色混合缓存的大小 
+// 只要一块4byte的缓存 32位无符号缓存
+GLuint atomic_counter_buffer;
+glGenBuffers(1, &atomic_counter_buffer);
+glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, atomic_counter_buffer);
+glBufferData(GL_ATOMIC_COUNTER_BUFFER, 
+            sizeof(GLuint), NULL, 
+            GL_DYNAMIC_COPY);
+
+/*------------------------ 创建颜色混合缓存 -------------------------*/
+// 大小至少是像素数量的数倍
+GLuint fragment_storage_buffer;
+glGenBuffers(1, &fragment_storage_buffer);
+glBindBuffer(GL_TEXTURE_BUFFER, fragment_storage_buffer);
+glBufferData(GL_TEXTURE_BUFFER，
+             4 * total_pixels * sizeof(vec4),	// 分配屏幕4倍的空间
+             NULL,
+             GL_DYNAMIC_COPY);
+// 每个元素		128位
+// next指针	32位 	无符号整形
+// 红色通道 	8位 	无符号整形
+// 绿色通道 	8位 	无符号整形
+// 蓝色通道 	8位 	无符号整形
+// alpha通道	 8位   无符号整形
+// 深度 		32位 	浮点数
+// 预留		32位
+```
+
+#### 渲染
+
+```c++
+/*----------- 清空头指针缓存 --------------*/
+glBindBuffer(GL_PIXEL_UNPACK_BUFFER, haed_pointer_initializer);
+glBindTexture(GL_TEXTURE_2D, head_pointer_texture);
+glTexImage2D(GL_TEXTURE_2D, 
+             0, // mipmap level
+             MAX_FRAMEBUFFER_WIDTH,
+             MAX_FRAMEBUFFER_HEIGHT,
+             0,
+             GL_UNSIGNED_INT,
+             NULL);	// 如果GL_PIXEL_UNPACK_BUFFER有非0对象绑定 该参数视为offset
+/*对于`glTexImage2D()`的最后一个参数:
+If a non-zero named buffer object is bound to the GL_PIXEL_UNPACK_BUFFER target (see glBindBuffer) while a texture image is specified, `data` is treated as a byte offset into the buffer object's data store.
+						-- from opengl reference*/
+/*--------------- 将头指针缓存绑定到纹理单元 --------------*/
+// 绑定到纹理单元使GPU可以访问
+glBindImageTexture(0,				// 纹理单元
+                  head_pointer_texture,// 纹理图像对象
+                  0,				// mipmap level
+                  GL_FALSE,			// 是否分层
+                  0,
+                  GL_READ_WRITE,	// 读写权限
+                  GL_R32UI);		// 单通道32位整形
+
+/*---------------------原子计数器归零----------------*/
+glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER,
+                0,
+                atomic_counter_buffer);
+const GLuint zero = 0;
+glBufferSubData(GL_ATOMIC_COUNTER_BUFFER,0,sizeof(zero), &zero);
+```
+
+```glsl
+
+// 开启片元预测试
+layout (early_fragment_tests) in;
+
+// 原子计数器
+layout (binding = 0, offset = 0) uniform atomic_uint u_AtomicCounter;
+
+// 颜色混合缓存
+layout (binding = 0, rgba32ui) uniform uimageBuffer u_ListBuffer;
+
+// 头指针缓存
+layout (binding = 1, r32ui) uniform uimage2D u_HeadMat;
+
+void main()
+{
+	// 绘制 获取片元颜色
+    vec4 fragColor = FragmentShader();
+    // 申请空间 即原子计数器+1
+    uint newHead = atomicCounterIncrement(u_AtomicCounter);
+    
+    // 将新申请的空间作为新的头指针写入头指针缓存
+    // 并返回原来的头指针
+    uint oldHead =
+		imageAtomicExchange(u_HeadMat, ivec2(gl_FragCoord.xy), newHead);
+    
+    // 初始化新头节点的数据
+    uvec4 item;
+    item.x = oldHead;	// next 指针
+    item.y = packUnorm4x8(fragColor);	// 32位深 4通道颜色
+    item.z = floatBitsToUint(gl_FragCoord.z);	// 深度
+    item.w = 0;			// 预留
+    
+    // 将节点数据写入头节点 index
+    imageStore(u_ListBuffer, int(newHead), item);
+}
+```
+
+#### 混合
+
+```glsl
+#version 450 core
+
+// 头指针缓存
+layout (binding = 1, r32ui) uniform uimage2D u_HeadMat;
+
+// 颜色混合缓存
+layout (binding = 0, rgba32ui) uniform uimageBuffer u_ListBuffer;
+
+#define MAX_FRAGMENTS 15
+
+// 用来暂存混合颜色的数组
+uvec4 fragments[MAX_FRAGMENTS];
+
+// 输出颜色
+out vec4 output_color;
+
+
+int build_local_fragment_list();
+void sort_fragment_list(int frag_count);
+vec4 calculate_final_color(int frag_count);
+
+void main()
+{
+    int frag_count;
+    
+    // 遍历链表 把混合颜色存入数组fragments
+    frag_count = build_local_fragment_list();
+    
+    // 按照深度顺序进行排序
+    sort_fragment_list(frag_count);
+    
+    // 将数组中的颜色混合 得到最终颜色
+    output_color = calculate_final_color(frag_count);
+}
+
+int build_local_fragment_list()
+{
+    uint current;
+    int frag_count = 0;
+	
+    current = imageLoad(u_HeadMat, ivec2(gl_FragCoord.xy)).x;
+    
+    while(current != 0xffffffff && frag_count < MAX_FRAGMENTS)
+    {
+        uvec4 item = imageLoad(u_ListBuffer, int(current));
+        current = item.x;	// next 指针
+        fragments[frag_count] = item;
+        frag_count ++;
+    }
+    return frag_count;
+}
+
+void sort_fragment_list(int frag_count)
+{
+    // 用最少的交换次数 '选择排序'可能更好一些？
+    int iMax, i, j;
+    for(i = 0; i < frag_count - 1;i++)
+    {
+        float depth_max, depth_j;
+        depth_max = uintBitsToFloat(fragments[i].z);
+        iMax = i;
+        for(j = i+ 1;j<frag_count;j++)
+        {
+            depth_j = uintBitsToFloat(fragments[j].z);
+            if(depth_j > depth_max)
+            {
+                iMax = j;
+                depth_max =depth_j;
+            }
+        }
+        uvec4 temp = fragments[iMax];
+        fragments[iMax]  =fragments[i];
+        fragments[i] = temp;
+    }
+}
+
+vec4 calculate_final_color(int frag_count)
+{
+    vec4 final_color = vec4(0.0f);
+    int i;
+    for(i =0;i < frag_count;i++ )
+    {
+        vec4 frag_color = unpackUnorm4x8(fragments[i].y);
+        final_color = mix(final_color, frag_color, frag_color.a);
+    }
+    return final_color;
+}
+```
+
+## 模版缓冲
+
+**模版测试**在**深度测试**之前。
+
+### 开启模版缓冲
+
+`glEnable(GL_STENCIL_TEST);`
+
+### 写入掩码
+
+```c++
+glStencilMask(0xFF); // 每一位写入模板缓冲时都保持原样
+glStencilMask(0x00); // 每一位在写入模板缓冲时都会变成0（禁用写入）
+```
+
+### 模版函数
+
+设置膜版测试**通过**的条件
+
+`glStencilFunc(GLenum func, GLint ref, GLuint mask);`
+
+#### 参数
+
+func 通过条件 枚举 可选的有
+
+`GL_NEVER`、`GL_LESS`、`GL_LEQUAL`、`GL_GREATER`、`GL_GEQUAL`、`GL_EQUAL`、`GL_NOTEQUAL`和`GL_ALWAYS`
+
+ref 参考值 8位字节码
+
+mask 位掩码 指定参考值的有效位
+
+### 写入操作
+
+`glStencilOp(GLenum sfail, GLenum dpfail, GLenum dppass);`
+
+指定深度测试、模版测试通过或者没有通过是对模版缓冲的操作。
+
+#### 参数
+
+`sfail`: 模版测试失败是进行的操作。
+
+`defail`:模版测试通过、深度测试失败进行的操作。
+
+`dppass`:模版测试和深度测试都通过进行的操作。
+
+他们可以是下面的取值。
+
+| 行为         | 描述                                               |
+| :----------- | :------------------------------------------------- |
+| GL_KEEP      | 保持当前储存的模板值                               |
+| GL_ZERO      | 将模板值设置为0                                    |
+| GL_REPLACE   | 将模板值设置为glStencilFunc函数设置的`ref`值       |
+| GL_INCR      | 如果模板值小于最大值则将模板值加1                  |
+| GL_INCR_WRAP | 与GL_INCR一样，但如果模板值超过了最大值则归零      |
+| GL_DECR      | 如果模板值大于最小值则将模板值减1                  |
+| GL_DECR_WRAP | 与GL_DECR一样，但如果模板值小于0则将其设置为最大值 |
+| GL_INVERT    | 按位翻转当前的模板缓冲值                           |
+
+默认情况下`glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)`
 
 # 函数
 
@@ -1150,7 +1583,39 @@ Specifies the data type of the pixel data. The following symbolic values are acc
 
 Specifies a pointer to the image data in memory.
 
+## glTransformFeedbackVaryings
 
+| `void glTransformFeedbackVaryings(` | GLuint program,        |
+| ----------------------------------- | ---------------------- |
+|                                     | GLsizei count,         |
+|                                     | const char **varyings, |
+|                                     | GLenum bufferMode`)`;  |
+
+ **`program`**
+
+The name of the target program object.
+
+着色器程序id
+
+**`count`**
+
+The number of varying variables used for transform feedback.
+
+变量数量
+
+**`varyings`**
+
+An array of *`count`* zero-terminated strings specifying the names of the varying variables to use for transform feedback.
+
+变量名
+
+**`bufferMode`**
+
+Identifies the mode used to capture the varying variables when transform feedback is active. *`bufferMode`* must be `GL_INTERLEAVED_ATTRIBS` or `GL_SEPARATE_ATTRIBS`.
+
+`GL_INTERLEAVED_ATTRIBS` 交叉排列
+
+`GL_SEPARATE_ATTRIBS` 依次排列到不同的缓存中
 
 # Table
 

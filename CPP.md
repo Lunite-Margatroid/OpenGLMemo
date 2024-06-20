@@ -559,6 +559,24 @@ std::function<int(int, int)> f2 = plus_class::plus_static;
 
 ## 仿函数（待补充）
 
+```c++
+class StringAppend {
+public:
+    explicit StringAppend(const string& str) : ss(str){}
+    void operator() (const string& str) const {
+         cout << str << ' ' << ss << endl;
+    }
+private:
+    const string ss;
+};
+
+int main() {
+    StringAppend myFunctor2("and world!");
+    myFunctor2("Hello");
+}
+
+```
+
 
 
 
@@ -817,7 +835,7 @@ public:
         delete[] r;
     };   
 };
-class RGBA:public RGBA
+class RGBA:public RGB
 {
 	float *a;
 public:
@@ -2096,6 +2114,62 @@ c++20 and newer
 }
 ```
 
+## 函数声明与定义
+
+如果函数只声明不定义，不调用。
+
+**一般函数**只声明不定义，只会warning，不会error。静态函数和成员函数也是如此。
+
+**虚函数**声明后必须定义。当然纯虚函数不能定义。
+
+## 标准库的数据结构
+
+### std::array
+
+栈区 数组
+
+### std::vector
+
+动态数组
+
+### std::list
+
+双向链表
+
+### std::forward_list
+
+单向链表
+
+### std::deque
+
+双向队列
+
+内部的数据结构是数组与链表的组合。扩容时，申请一块内存，将这块内存连接到当前的内存链中。
+
+### std::stack & std::queue
+
+栈与队列 由deque演化来的
+
+### std::set & std::multiset
+
+红黑树
+
+### std::map & std::multimap
+
+红黑树
+
+### std::unordered_set & std::unordered_multiset
+
+哈希表
+
+### std::unordered_map & std::unordered_multimap
+
+哈希表
+
+
+
+
+
 
 
 ## 二分查找
@@ -2197,68 +2271,210 @@ template<typename T>
 ```
 
 
+## 基本计算器
 
-## 堆排序
-
-写leetcode的题目总是会用到排序。
+LeetCode224
 
 ```c++
-void Swap(int& a, int& b)
-	{
-		a = a ^ b;
-		b = a ^ b;
-		a = a ^ b;
-	}
-	void ProcNode(vector<int>& arr, int node, int n)
-	{
-		while (node < n / 2)
-		{
-			int left = node * 2 + 1;
-			int right = node * 2 + 2;
-			if (left >= n)  // 没有左子节点
-				return;
-			if (right >= n) // 没有右子节点
-			{
-				if (arr[left] > arr[node])
-				{
-					Swap(arr[left], arr[node]);
-				}
-				return;
-			}
-			if (arr[node] >= arr[left] && arr[node] >= arr[right])  // node是最大节点
-			{
-				return;
-			}
+struct SubString
+    {
+        const char* data;
+        int len;
+        SubString(const char* s, int l)
+        {
+            data = s;
+            len = l;
+        }
 
-			if (arr[left] > arr[right])  // 左节点大
-			{
-				Swap(arr[left], arr[node]);
-				node = left;
-			}
-			else    // right is greater
-			{
-				Swap(arr[right], arr[node]);
-				node = right;
-			}
-		}
-	}
-	void BuildHeap(vector<int>& arr, int n)
-	{
-		for (int i = n / 2; i >= 0; i--)
-		{
-			ProcNode(arr, i, n);
-		}
-	}
+        char operator [](int i)
+        {
+            if(i >= len)
+                return data[0];
+            return data[i];
+        }
 
-	void HeapSort(vector<int>& arr, int n)
-	{
-		BuildHeap(arr, n);
-		while (n > 1)
-		{
-			Swap(arr[0], arr[n - 1]);
-			n--;
-			ProcNode(arr, 0, n);
-		}
-	}
+        int ToInt()
+        {
+            int sum  =0;
+            for(int i = 0;i < len;i++)
+            {
+                if(data[i] != '-')
+                {
+                    sum *= 10;
+                    sum += (data[i] - '0');
+                }
+            }
+            if(data[0] == '-')
+            return -sum;
+            return sum;
+        }
+    };
+
+ostream& operator << (ostream& os, SubString& ss)
+        {
+            for(int i=0;i <ss.len;i++)
+                os << ss.data[i];
+            return os;
+        }
+
+class Solution {
+    int calc(char opt, int a, int b)
+    {
+        switch(opt)
+        {
+            case '+': return a+ b;
+            break;
+            case '-': return a- b;
+            break;
+            default:break;
+        };
+        return a+b;
+    }
+    bool IsOpt(SubString& ss)
+    {
+        if(ss.len > 1)
+        return false;
+        return ss.data[0] == '-' || ss.data[0] == '+';
+    }
+    bool IsLBkt(SubString& ss)
+    {
+        if(ss.len > 1)
+        return false;
+        return ss.data[0] == '(' ;
+    }
+    bool IsRBkt(SubString& ss)
+    {
+        if(ss.len > 1)
+        return false;
+        return ss.data[0] == ')';
+    }
+
+    bool IsNum(char ch)
+    {
+        return ch >= '0' && ch <= '9';
+    }
+    
+    bool IsNum(SubString& ss)
+    {
+        if(IsLBkt(ss) || IsRBkt(ss)||IsOpt(ss))
+            return false;
+        return true;
+    }
+public:
+    int calculate(string s) {
+        vector<SubString> items;
+        const char* ex = "0()";
+        SubString ssZero(ex, 1);
+        SubString ssLBkt(ex + 1, 1);
+        SubString ssRBkt(ex + 2, 1);
+        items.push_back(ssLBkt);
+        int n =s.length();
+        int i =0;
+        while(i < n)
+        {
+            while(i < n && s[i] == ' ') i++;
+            int b = i;
+            char ch = s[b];
+            if(i < n)
+            if(IsNum(ch))
+            {
+                i += 1;
+                while(i < n && IsNum(s[i])) i++;
+                items.emplace_back(SubString(s.c_str() + b, i - b));
+                continue;
+            }
+            else
+            {
+                items.emplace_back(SubString(s.c_str() + b, 1));
+                i++;
+            }
+            
+        }
+        items.push_back(ssRBkt);
+        for(auto& i : items)
+        {
+            cout << i ;
+        }
+        cout << endl;
+
+        vector<SubString> rBolan;
+        stack<SubString> stkOpt;
+        
+        i  =0;
+        n = items.size();
+        for(i =0 ;i <n;i++)
+        {
+            SubString temp = items[i];
+            if(IsOpt(temp))
+            {
+                int j = i+1;
+                SubString tt  =items[j];
+                if(IsNum(tt))
+                {
+                    rBolan.push_back(tt);
+                    rBolan.push_back(temp);
+                    i = j;
+                    continue;
+                }
+                if(IsLBkt(tt))
+                {
+                    stkOpt.push(temp);
+                }
+                continue;
+            }
+            if(IsLBkt(temp))
+            {
+                stkOpt.push(temp);
+                int j = i+1;
+                SubString tt  =items[j];
+                if(IsOpt(tt))   // temp 是个一元操作符
+                {
+                    rBolan.push_back(ssZero);
+                }
+                continue;
+            }
+            if(IsRBkt(temp))
+            {
+                stkOpt.pop();
+                if(!stkOpt.empty())
+                if(IsOpt(stkOpt.top()))
+                {
+                    rBolan.push_back(stkOpt.top());
+                    stkOpt.pop();
+                }
+                continue;
+            }
+            if(IsNum(temp))
+            {
+                rBolan.push_back(temp);
+            }
+        }
+
+        for (auto& ss:rBolan)
+        {
+            cout << ss << ' ';
+        }
+
+        stack<int> stk;
+        for(auto& ss:rBolan)
+        {
+            if(IsNum(ss))
+            {
+                stk.push(ss.ToInt());
+                continue;
+            }
+            if(IsOpt(ss))
+            {
+                int b = stk.top();
+                stk.pop();
+                int a = stk.top();
+                stk.pop();
+                stk.push(calc(ss.data[0], a, b));
+            }
+        }
+        cout << stk.top();
+        return stk.top();
+    }
+};
 ```
 
